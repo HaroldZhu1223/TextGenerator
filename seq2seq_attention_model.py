@@ -39,7 +39,7 @@ class Attn(nn.Module):
             self.attn = nn.Linear(self.hidden_size, self.hidden_size)
         elif self.method == 'concat':
             self.attn = nn.Linear(self.hidden_size*2, self.hidden_size)
-            self.v = nn.Parameter(self.hidden_size)
+            self.v = nn.Parameter(torch.Tensor(self.hidden_size))
 
     def dot_score(self, decoder_hidden, encoder_outputs):
         '''
@@ -54,7 +54,7 @@ class Attn(nn.Module):
         return torch.sum(score*decoder_hidden, dim = 2)
 
     def concat_score(self, decoder_hidden, encoder_outputs):
-        concat = self.attn(torch.cat((decoder_hidden.expand(encoder_outputs.size(0), -1, -1), encoder_outputs), 2))
+        concat = self.attn(torch.cat((decoder_hidden.expand(encoder_outputs.size(0), -1, -1), encoder_outputs), 2)).tanh()
         return torch.sum(self.v * concat, dim=2)
 
 

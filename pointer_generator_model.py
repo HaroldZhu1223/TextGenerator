@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import torch.functional as F
+import torch.nn.functional as F
 import config
 
 
@@ -15,7 +15,7 @@ def init_linear_wt(linear):
 def init_wt_normal(weights):
     weights.data.normal_(std=config.trunc_norm_init_std)
 
-def init_wt_unif(weights)
+def init_wt_unif(weights):
     weights.data.uniform_(-config.unif, config.unif)
 
 class Encoder(nn.Module):
@@ -34,7 +34,7 @@ class Encoder(nn.Module):
         '''
         embedded = self.embedding(encoder_input) # embedded: B, T, emb_dim
         packed = nn.utils.rnn.pack_padded_sequence(embedded, seq_len, batch_first=True)
-        encoder_outputs, hidden = self.lstm(packed) # hidden: layer*2, batch, hidden_size
+        encoder_outputs, hidden = self.lstm(packed) # hidden: （hn, cn）   hn: 2L,B,H    cn:2L,B,H
         encoder_outputs, _ = nn.utils.rnn.pad_packed_sequence(encoder_outputs)  # encoder_outputs: B, T, hidden_size*2
         encoder_feature = encoder_outputs.contiguous().view(-1, 2*config.hidden_size) # encoder_feature: B*T, 2*hidden,size
         encoder_feature = self.W_h(encoder_feature)
@@ -50,15 +50,15 @@ class RuduceState(nn.Module):
 
     def forward(self, encoder_hidden):
         '''
-        :param encoder_hidden: 2, B, H
+        :param encoder_hidden: hn, cn       2,B,H * 2
         :return:
         '''
         h, c = encoder_hidden
-        h_in = h.transpose(0,1).contiguous().view(-1, 2*config.hidden_size) # h.t: B,2,H ->  h_in: B,2H
-        hidden_reduce_h = F.relu(self.reduce_h(h_in))  # h_in: B, H
-        c_in = c.transpose(0, 1).contiguous().view(-1, 2 * config.hidden_size)  # c.t: B,2,H ->  c_in: B,2H
-        hidden_reduce_c = F.relu(self.reduce_c(c_in))  # c_in: B, H
-        return (hidden_reduce_h.unsqueeze(0), hidden_reduce_c.unsqueeze(0)) # ( (1, B, H), (1, B, H) )
+        h_in = h.transpose(0,1).contiguous().view(-1, 2*config.hidden_size) # h.t: B,2L,H ->  h_in: BL,2H
+        hidden_reduce_h = F.relu(self.reduce_h(h_in))  # h_in: BL, H
+        c_in = c.transpose(0, 1).contiguous().view(-1, 2 * config.hidden_size)  # c.t: B,2L,H ->  c_in: BL,2H
+        hidden_reduce_c = F.relu(self.reduce_c(c_in))  # c_in: BL, H
+        return (hidden_reduce_h.unsqueeze(0), hidden_reduce_c.unsqueeze(0)) # ( (1, BL, H), (1, BL, H) )
 
 
 
